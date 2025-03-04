@@ -6,6 +6,7 @@ import stripe
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core import serializers
 import json
+from django.contrib import messages
 
 
 stripe.api_key = settings.STRIPE_API_SECRET_KEY
@@ -24,14 +25,31 @@ class PaySuccessView(LoginRequiredMixin, TemplateView):
     template_name = 'pages/success.html'
 
     def get(self, request, *args, **kwargs):
-        # 最新のOrderオブジェクトを取得し、注文確定に変更
-        order = Order.objects.filter(
-            user=request.user).order_by('-created_at')[0]
+        # checkout_sessionで渡したクエリを取得
+        order_id = request.GET.get('order_id')
+
+        # idと現userでOrderオブジェクトのリストを取得
+        orders = Order.objects.filter(user=request.user, id=order_id)
+
+        # もし要素数が1でなければ以降に進まないようにここでreturn
+        if len(orders) != 1:
+            # 好みでリダイレクトやメッセージを表示してあげてもいいかもしれません。
+            return super().get(request, *args, **kwargs)
+
+        # １つの要素を変数へ代入
+        order = orders[0]
+
+        # 既にis_confirmed=Trueなら以降に進まないようにここでreturn
+        if order.is_confirmed:
+            # 好みでリダイレクトやメッセージを表示してあげてもいいかもしれません。
+            return super().get(request, *args, **kwargs)
+
         order.is_confirmed = True  # 注文確定
         order.save()
 
         # カート情報削除
-        del request.session['cart']
+        if 'cart' in request.session:
+            del request.session['cart']
 
         return super().get(request, *args, **kwargs)
 
@@ -40,20 +58,18 @@ class PayCancelView(LoginRequiredMixin, TemplateView):
     template_name = 'pages/cancel.html'
 
     def get(self, request, *args, **kwargs):
-        # 最新のOrderオブジェクトを取得
-        order = Order.objects.filter(
-            user=request.user).order_by('-created_at')[0]
+        # 現userの仮Orderオブジェクトのリストを取得
+        orders = Order.objects.filter(user=request.user, is_confirmed=False)
 
-        # 在庫数と販売数を元の状態に戻す
-        for elem in json.loads(order.items):
-            item = Item.objects.get(pk=elem['pk'])
-            item.sold_count -= elem['quantity']
-            item.stock += elem['quantity']
-            item.save()
-
-        # is_confirmedがFalseであれば削除（仮オーダー削除）
-        if not order.is_confirmed:
-            order.delete()
+        for order in orders:
+            # 在庫数と販売数を元の状態に戻す
+            for elem in json.loads(order.items):
+                item = Item.objects.get(pk=elem['pk'])
+                item.sold_count -= elem['quantity']
+                item.stock += elem['quantity']
+                item.save()
+        # 仮オーダーを全て削除
+        orders.delete()
 
         return super().get(request, *args, **kwargs)
 
@@ -89,10 +105,12 @@ class PayWithStripe(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
         # プロフィールが埋まっているかチェック
         if not check_profile_filled(request.user.profile):
+            messages.error(self.request, '配送のためプロフィールを埋めてください。')
             return redirect('/profile/')
 
         cart = request.session.get('cart', None)
         if cart is None or len(cart) == 0:
+            messages.error(self.request, 'カートが空です。')
             return redirect('/')
 
         items = []  # Orderモデル用に追記
@@ -119,7 +137,7 @@ class PayWithStripe(LoginRequiredMixin, View):
             item.save()
 
         # 仮注文を作成（is_confirmed=False）
-        Order.objects.create(
+        order = Order.objects.create(
             user=request.user,
             uid=request.user.pk,
             items=json.dumps(items),
@@ -133,7 +151,9 @@ class PayWithStripe(LoginRequiredMixin, View):
             payment_method_types=['card'],
             line_items=line_items,
             mode='payment',
-            success_url=f'{settings.MY_URL}/pay/success/',
+            # success_urlには、クエリで注文IDを渡しておく
+            success_url=f'{settings.MY_URL}/pay/success/?order_id={order.pk}',
             cancel_url=f'{settings.MY_URL}/pay/cancel/',
         )
+
         return redirect(checkout_session.url)
