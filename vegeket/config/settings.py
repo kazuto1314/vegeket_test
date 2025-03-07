@@ -33,9 +33,9 @@ env.read_env(root('.env.dev'))
 SECRET_KEY = env.str('SECRET_KEY')  # 変更
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG')  # 変更
+DEBUG = False  # 変更
 
-ALLOWED_HOST = env.list('ALLOWED_HOSTS')  # 変更
+ALLOWED_HOSTS = ['127.0.0.1' ,'herokuapp.com']  # 変更
 
 
 # Application definition
@@ -132,11 +132,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') # 追記
+
 STATIC_URL = '/static/'
 
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',  # 追記
-]
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'static'),
+)
 
 
 # 消費税率
@@ -173,3 +175,38 @@ MESSAGE_TAGS = {
 
 # カスタムコンテキスト
 TITLE = 'VegiKet'
+
+ALLOWED_HOST = ['127.0.0.1' ,'herokuapp.com']
+
+#CSSを反映させる
+MIDDLEWARE = [
+    'django.middleware.security.SecurityMiddleware',
+     #以下の行（whitenoise...）をdjango.middleware...の後、
+     #django.contrib...よりも前に追加する
+    'whitenoise.middleware.WhiteNoiseMiddleware',   
+        
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+#Heroku database
+import dj_database_url
+db_from_env = dj_database_url.config()
+DATABASES['default'].update(db_from_env)
+
+db_from_env = dj_database_url.config(conn_max_age=600, ssl_require=True)
+DATABASES['default'].update(db_from_env)
+
+try:
+    from .local_settings import *
+except ImportError:
+    pass
+
+if not DEBUG:
+    SECRET_KEY = django-insecure-xd__w))t(wm1abwjo3n3cad%_*^20-8d+624y=ig&!$ul+s(5s 
+    import django_heroku
+    django_heroku.settings(locals())
