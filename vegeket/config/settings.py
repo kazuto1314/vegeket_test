@@ -35,7 +35,7 @@ SECRET_KEY = env.str('SECRET_KEY')  # 変更
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False  # 変更
 
-ALLOWED_HOSTS = ['127.0.0.1' ,'herokuapp.com']  # 変更
+ALLOWED_HOST = ['127.0.0.1' ,'herokuapp.com']  # 変更
 
 
 # Application definition
