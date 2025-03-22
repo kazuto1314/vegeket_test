@@ -39,7 +39,7 @@ SECRET_KEY = env.str('SECRET_KEY')  # 変更
  # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False  # 変更
 
-ALLOWED_HOST = ['127.0.0.1' ,'herokuapp.com']  # 変更
+ALLOWED_HOSTS = ['127.0.0.1' ,'herokuapp.com']  # 変更
 
 
  # Application definition
@@ -92,16 +92,24 @@ WSGI_APPLICATION = 'config.wsgi.application'
  # Database
  # https://docs.djangoproject.com/en/3.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DB_DATABASE'),
-        'USER': os.environ.get('DB_USERNAME'),
-        'PASSWORD': os.environ.get('DB_PASSWORD'),
-        'HOST': os.environ.get('DB_HOST'),
-        'PORT': os.environ.get('DB_PORT', '3306'),
+if os.environ.get('DJANGO_ENV') == 'production':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.environ.get('DB_DATABASE'),
+            'USER': os.environ.get('DB_USERNAME'),
+            'PASSWORD': os.environ.get('DB_PASSWORD'),
+            'HOST': os.environ.get('DB_HOST'),
+            'PORT': os.environ.get('DB_PORT', '3306'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
  # Password validation
